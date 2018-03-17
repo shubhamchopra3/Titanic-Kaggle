@@ -2,7 +2,7 @@
 """
 Created on Fri Mar 16 21:39:15 2018
 
-@author: admin
+@author: shubham chopra
 """
 
 #importing data analysis libraries 
@@ -83,9 +83,9 @@ dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
 
 title_mapping={"Mr":1,"Miss":2,"Mrs":3,"Master":4,"Rare":5}
 
-
-dataset['Title']=dataset['Title'].map(title_mapping)
-dataset['Title']=dataset['Title'].fillna(0)
+for dataset in combine:
+    dataset['Title']=dataset['Title'].map(title_mapping)
+    dataset['Title']=dataset['Title'].fillna(0)
 
 train_df=train_df.drop(['Name','PassengerId'],axis=1)
 test_df=test_df.drop(['Name'],axis=1)
@@ -133,4 +133,80 @@ for dataset in combine:
 train_df[['Embarked', 'Survived']].groupby(['Embarked'], as_index=False).mean().sort_values(by='Survived', ascending=False)
 
 
+for dataset in combine:
+    dataset['Embarked']=dataset['Embarked'].map({'S':0,'C':1,'Q':2}).astype(int)
 
+
+test_df['Fare'].fillna(test_df['Fare'].dropna().median(), inplace=True)
+
+
+train_df['FareBand'] = pd.qcut(train_df['Fare'], 4)
+train_df[['FareBand', 'Survived']].groupby(['FareBand'], as_index=False).mean().sort_values(by='FareBand', ascending=True)
+
+for dataset in combine:
+    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] = 0
+    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
+    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2
+    dataset.loc[ dataset['Fare'] > 31, 'Fare'] = 3
+    dataset['Fare'] = dataset['Fare'].astype(int)
+
+
+train_df = train_df.drop(['FareBand'], axis=1)
+combine = [train_df, test_df]
+    
+
+
+X_train = train_df.drop(["Survived"], axis=1)
+Y_train = train_df["Survived"]
+X_test  = test_df.drop(["PassengerId"], axis=1)
+X_train.shape, Y_train.shape, X_test.shape
+
+logreg = LogisticRegression()
+logreg.fit(X_train, Y_train)
+Y_pred = logreg.predict(X_test)
+acc_log = round(logreg.score(X_train, Y_train) * 100, 2)
+acc_log
+
+import statsmodels.api as sm
+X2 = sm.add_constant(X_train)
+est = sm.OLS(Y_train, X2)
+est2 = est.fit()
+print(est2.summary())
+
+
+
+svc = SVC()
+svc.fit(X_train, Y_train)
+Y_pred = svc.predict(X_test)
+acc_svc = round(svc.score(X_train, Y_train) * 100, 2)
+acc_svc
+
+knn = KNeighborsClassifier(n_neighbors = 3)
+knn.fit(X_train, Y_train)
+Y_pred = knn.predict(X_test)
+acc_knn = round(knn.score(X_train, Y_train) * 100, 2)
+acc_knn
+
+
+gaussian = GaussianNB()
+gaussian.fit(X_train, Y_train)
+Y_pred = gaussian.predict(X_test)
+acc_gaussian = round(gaussian.score(X_train, Y_train) * 100, 2)
+acc_gaussian
+
+
+
+random_forest = RandomForestClassifier(n_estimators=100)
+random_forest.fit(X_train, Y_train)
+Y_pred = random_forest.predict(X_test)
+random_forest.score(X_train, Y_train)
+acc_random_forest = round(random_forest.score(X_train, Y_train) * 100, 2)
+acc_random_forest
+
+submission = pd.DataFrame({
+        "PassengerId": test_df["PassengerId"],
+        "Survived": Y_pred
+    })
+
+submission.to_csv(submission.csv, sep='\t')
+submission.to_csv('./submission.csv', index=False)
